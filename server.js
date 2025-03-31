@@ -21,7 +21,7 @@ mqttClient.on("error", (err) => {
 });
 
 // Inisialisasi WebSocket Server
-const wss = new WebSocket.Server({ port: 8080 });
+const wss = new WebSocket.Server({ port: 3000 });
 
 wss.on("connection", (ws) => {
   console.log("✅ Client connected");
@@ -60,4 +60,4 @@ mqttClient.on("message", (topic, message) => {
   }
 });
 
-console.log("✅ WebSocket Server running on ws://localhost:8080");
+console.log("✅ WebSocket Server running on ws://localhost:3000");
