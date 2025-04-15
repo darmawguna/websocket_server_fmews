@@ -1,11 +1,13 @@
 import dotenv from "dotenv";
-import WebSocket from "ws";
+import { Server } from "socket.io";
 import mqtt from "mqtt";
+import http from "http";
 
-dotenv.config();
+// dotenv.config();
 
+const MQTT_BROKER_URL = "mqtt://192.168.117.73:1883";
 // Konfigurasi MQTT
-const mqttClient = mqtt.connect("mqtt://192.168.1.13:1883");
+const mqttClient = mqtt.connect(MQTT_BROKER_URL);
 
 mqttClient.on("connect", () => {
   console.log("✅ Connected to MQTT Broker");
@@ -20,44 +22,40 @@ mqttClient.on("error", (err) => {
   console.error("❌ MQTT Connection error:", err);
 });
 
-// Inisialisasi WebSocket Server
-const wss = new WebSocket.Server({ port: 3000 });
+// Inisialisasi HTTP Server untuk Socket.IO
+const server = http.createServer();
+const io = new Server(server, {
+  cors: {
+    origin: "*", // Sesuaikan dengan frontend yang akan terhubung
+    methods: ["GET", "POST"],
+  },
+});
 
-wss.on("connection", (ws) => {
-  console.log("✅ Client connected");
+io.on("connection", (socket) => {
+  console.log("✅ Client connected to Socket.IO");
 
-  ws.on("message", (message) => {
-    console.log(`📩 Received: ${message}`);
-  });
-
-  ws.on("close", () => {
+  socket.on("disconnect", () => {
     console.log("❌ Client disconnected");
-  });
-
-  ws.on("error", (error) => {
-    console.error("❌ WebSocket error:", error);
   });
 });
 
-// Saat ada pesan dari MQTT, kirim langsung ke WebSocket
+// Saat ada pesan dari MQTT, kirim langsung ke semua client Socket.IO
 mqttClient.on("message", (topic, message) => {
   try {
-    // console.log(message);
-    const parsedMessage = message.toString();
+    const parsedMessage = JSON.parse(message.toString());
     if (!parsedMessage) {
       console.warn("⚠️ Received empty message from MQTT");
       return;
     }
-    console.log(`📡 MQTT Data: ${topic} - ${parsedMessage}`);
+    console.log(`📡 MQTT Data: ${topic} -`, parsedMessage);
 
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify({ topic, data: parsedMessage }));
-      }
-    });
+    io.emit("water-level", parsedMessage); // Kirim ke semua client yang terhubung
   } catch (error) {
     console.error("❌ Error processing MQTT message:", error);
   }
 });
 
-console.log("✅ WebSocket Server running on ws://localhost:3000");
+const PORT = 3000;
+server.listen(PORT, () => {
+  console.log(`✅ Socket.IO Server running on http://localhost:${PORT}`);
+});
